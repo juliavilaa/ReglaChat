@@ -1,27 +1,28 @@
 import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings # IMPORTANTE: Modelo Local
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
 def crear_base_vectorial_local():
     print("1. Cargando el documento PDF...")
-    loader = PyPDFLoader(r'pdfs\reglamento.pdf') # Asegúrate de que el PDF esté aquí
+    loader = PyPDFLoader(r'pdfs\reglamento.pdf') 
     documentos = loader.load()
 
-    print("2. Aplicando Chunking (Dividiendo en fragmentos)...")
+    print("2. Aplicando Chunking Mejorado...")
+    # Aumentamos el tamaño y usamos los "Artículos" como separadores principales
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,    # Tamaño ideal para capturar una regla completa
-        chunk_overlap=50,  # Solapamiento para no cortar ideas por la mitad
-        separators=["\n\n", "\n", ".", " "]
+        chunk_size=1200,    # Aumentado para capturar artículos completos
+        chunk_overlap=200,  # Aumentado para mantener la coherencia
+        separators=["\nARTÍCULO", "\nPARÁGRAFO", "\n\n", "\n", ".", " "]
     )
     fragmentos = text_splitter.split_documents(documentos)
     print(f"   -> Se generaron {len(fragmentos)} chunks.")
 
-    print("3. Generando Embeddings Locales (all-MiniLM-L6-v2)...")
-    # Este modelo se descargará la primera vez que lo corras (pesa muy poco, ~90MB)
+    print("3. Generando Embeddings Multilingües...")
+    # Este modelo es excelente para textos en español
     embeddings_locales = HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2"
+        model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     )
 
     print("4. Guardando en ChromaDB...")
@@ -31,7 +32,7 @@ def crear_base_vectorial_local():
         persist_directory="./chroma_db",
         collection_name="reglamento_db"
     )
-    print("¡Base vectorial híbrida creada con éxito!")
+    print("¡Base vectorial creada con éxito!")
 
 if __name__ == "__main__":
     crear_base_vectorial_local()
