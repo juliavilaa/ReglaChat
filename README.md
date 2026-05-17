@@ -357,17 +357,6 @@ A continuación se presentan los resultados de la evaluación RAGAS sobre un dat
 
 3. **El prompt TFTCR + Few-Shot funciona para respuestas correctas:** Las preguntas con alta `answer_relevancy` (>0.85) corresponden a respuestas estructuradas y directas, lo que valida el diseño del prompt.
 
-#### Recomendaciones
-
-| Prioridad | Acción | Impacto Esperado |
-|---|---|---|
-| Alta | Revisar el chunking de artículos sobre prácticas profesionales y graduación | Mejorar `context_precision` en temas específicos |
-| Alta | Ajustar el `k` del retriever o probar MMR con `fetch_k` mayor | Reducir contexto irrelevante en recuperación |
-| Media | Ampliar el dataset de evaluación con más variantes de preguntas | Métricas más robustas y representativas |
-| Media | Implementar re-ranking de contextos con un modelo de cross-encoder | Precisión de recuperación más alta |
-| Baja | Considerar aumentar `chunk_size` para capturar artículos completos | Mejor coherencia semántica en chunks |
-
----
 
 ## Requisitos e Instalación
 
