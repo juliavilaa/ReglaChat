@@ -137,12 +137,7 @@ El proceso de ingesta (`1_ingesta.py`) transforma el documento PDF en una base d
 |---|---|---|
 | **Chunk Size** | 1200 caracteres | Balance entre contexto y precisión |
 | **Chunk Overlap** | 200 caracteres | Preserva contexto entre fragmentos |
-| **Separadores** | `["
-ARTICULO", "
-PARAGRAFO", "
-
-", "
-", ".", " "]` | Respeta la estructura legal del documento |
+| **Separadores** | `["ARTICULO", "PARAGRAFO", "", "", ".", " "]` | Respeta la estructura legal del documento |
 
 ### Estrategia de Segmentación
 
@@ -151,10 +146,7 @@ El `RecursiveCharacterTextSplitter` aplica los separadores en orden de prioridad
 ARTICULO` (preserva artículos completos)
 2. Si no cabe, usa `
 PARAGRAFO` (preserva parágrafos)
-3. Falls back a separadores genéricos (`
-
-`, `
-`, `.`, ` `)
+3. Falls back a separadores genéricos (``, ``, `.`, ` `)
 
 Esto asegura que cada chunk mantenga coherencia semántica dentro del contexto regulatorio.
 
@@ -249,7 +241,7 @@ Respuesta:
                                     ↓
 2. Pregunta se vectoriza → Embedding de la consulta
                                     ↓
-3. Búsqueda en ChromaDB → Top-6 chunks más similares
+3. Búsqueda en ChromaDB → Top-5 chunks más similares
                                     ↓
 4. Concatenación de contexto → Todos los chunks unidos en un solo string
                                     ↓
@@ -309,8 +301,71 @@ Los resultados se exportan a `informe_evaluacion_rag.csv` con las siguientes col
 ### Ejecución de la Evaluación
 
 ```powershell
-.env\Scripts\python.exe 3_evaluacion_ragas.py
+.\env\Scripts\python.exe 3_evaluacion_ragas.py
 ```
+
+---
+
+### Informe de Resultados
+
+A continuación se presentan los resultados de la evaluación RAGAS sobre un dataset de 10 preguntas de prueba representativas del Reglamento Institucional:
+
+#### Tabla de Resultados
+
+| # | Pregunta | Faithfulness | Answer Relevancy | Context Precision |
+|---|---|:---:|:---:|:---:|
+| 1 | ¿Cuántas inasistencias causan la pérdida de la materia? | **1.00** | 0.54 | 0.00 |
+| 2 | ¿Cuál es la nota mínima aprobatoria ordinaria? | **1.00** | 0.86 | **0.75** |
+| 3 | ¿Qué pasa si un estudiante pierde una asignatura por tercera vez? | **1.00** | 0.00 | 0.00 |
+| 4 | ¿Cuántos créditos equivale un crédito académico en horas? | **1.00** | 0.95 | **1.00** |
+| 5 | ¿Cuáles son los requisitos para obtener una Mención de Honor? | **1.00** | **1.00** | 0.50 |
+| 6 | ¿Cuáles son los documentos requeridos para inscribirse a un programa de pregrado? | **1.00** | 1.00 | **1.00** |
+| 7 | ¿Qué porcentaje máximo puede tener un examen final sobre la nota total? | **1.00** | N/A | 0.00 |
+| 8 | ¿Cuánto tiempo tiene un estudiante antiguo para solicitar devolución del dinero de matrícula si se retira? | **1.00** | 0.87 | **1.00** |
+| 9 | ¿Cuáles son los tipos de práctica profesional reconocidos por la institución? | 0.00 | 0.00 | 0.00 |
+| 10 | ¿Cuáles son los requisitos para graduarse en la Fundación Universitaria Konrad Lorenz? | **1.00** | 0.94 | 0.00 |
+| | **Promedio General** | **0.90** | **0.68** | **0.43** |
+
+#### Análisis por Métrica
+
+##### Faithfulness (Fidelidad) → Promedio: 0.90
+- **Definición:** Mide si la respuesta generada está fundamentada en el contexto recuperado.
+- **Resultado:** Excelente. En 9 de 10 preguntas la respuesta fue completamente fiel al contexto recuperado.
+- **Anomalía:** La pregunta #9 ("Tipos de práctica profesional") obtuvo **0.00**, lo que indica que el LLM alucinó o no encontró soporte suficiente en el contexto recuperado para su respuesta.
+
+##### Answer Relevancy (Relevancia de la Respuesta) → Promedio: 0.68
+- **Definición:** Evalúa si la respuesta es directamente relevante para la pregunta formulada.
+- **Resultado:** Moderado. Hay alta variabilidad entre preguntas.
+- **Casos problemáticos:**
+  - Pregunta #3 ("Perder asignatura por tercera vez") → **0.00**: El sistema no respondió la pregunta específica sobre la tercera pérdida, sino sobre reprobación general.
+  - Pregunta #9 ("Tipos de práctica profesional") → **0.00**: Respuesta irrelevante generada.
+  - Pregunta #1 ("Inasistencias") → **0.54**: Respuesta parcialmente relevante, mezcló información de inasistencias con sanciones disciplinarias.
+- **Casos exitosos:** Preguntas #5, #6 y #4 obtuvieron puntuaciones superiores a 0.95, indicando respuestas altamente relevantes.
+
+##### Context Precision (Precisión del Contexto) → Promedio: 0.43
+- **Definición:** Mide qué proporción de los chunks recuperados son realmente relevantes para responder la pregunta.
+- **Resultado:** Necesita mejora. Aunque `faithfulness` es alto, el retriever a menudo incluye contexto irrelevante.
+- **Casos críticos:**
+  - Preguntas #1, #3, #7, #9, #10 obtuvieron **0.00**: El retriever no encontró los artículos correctos o incluyó información no relacionada (ej. sanciones disciplinarias, matrícula, prácticas profesionales).
+  - Pregunta #2 obtuvo **0.75**: Recuperó contexto parcialmente relevante pero incluyó artículos sobre inasistencias.
+
+#### Hallazgos Clave
+
+1. **El LLM es conservador:** Cuando encuentra contexto relevante, rara vez alucina (faithfulness 0.90). Sin embargo, cuando el contexto es impreciso, tiende a no responder o a responder de forma genérica.
+
+2. **Problema de recuperación en artículos específicos:** Las preguntas sobre prácticas profesionales, graduación y reingreso obtuvieron `context_precision` de 0.00, lo que sugiere que el embedding no está capturando bien la similitud semántica para esos temas o que los chunks relevantes no están bien diferenciados.
+
+3. **El prompt TFTCR + Few-Shot funciona para respuestas correctas:** Las preguntas con alta `answer_relevancy` (>0.85) corresponden a respuestas estructuradas y directas, lo que valida el diseño del prompt.
+
+#### Recomendaciones
+
+| Prioridad | Acción | Impacto Esperado |
+|---|---|---|
+| Alta | Revisar el chunking de artículos sobre prácticas profesionales y graduación | Mejorar `context_precision` en temas específicos |
+| Alta | Ajustar el `k` del retriever o probar MMR con `fetch_k` mayor | Reducir contexto irrelevante en recuperación |
+| Media | Ampliar el dataset de evaluación con más variantes de preguntas | Métricas más robustas y representativas |
+| Media | Implementar re-ranking de contextos con un modelo de cross-encoder | Precisión de recuperación más alta |
+| Baja | Considerar aumentar `chunk_size` para capturar artículos completos | Mejor coherencia semántica en chunks |
 
 ---
 
@@ -338,7 +393,7 @@ El proyecto incluye un entorno virtual pre-configurado (`venv/`). Si necesita re
 python -m venv venv
 
 # Activar entorno
-.env\Scripts\Activate.ps1
+.\env\Scripts\Activate.ps1
 
 # Instalar dependencias
 pip install -r requirements.txt
@@ -363,10 +418,10 @@ GOOGLE_API_KEY=tu_clave_api_aqui
 Procesa el documento PDF y crea la base de datos vectorial:
 
 ```powershell
-.env\Scripts\python.exe 1_ingesta.py
+.\env\Scripts\python.exe 1_ingesta.py
 ```
 
-**Fuente del PDF:** `pdfs/reglamento.pdf` (588 KB)
+**Fuente del PDF (ya se encuentra en la carpeta):** `pdfs/reglamento.pdf` (588 KB)
 
 Este script:
 - Lee el PDF desde `pdfs/reglamento.pdf`
@@ -379,7 +434,7 @@ Este script:
 Lanza la interfaz web conversacional:
 
 ```powershell
-.env\Scripts\python.exe 2_app_gradio.py
+.\env\Scripts\python.exe 2_app_gradio.py
 ```
 
 La aplicación estará disponible en `http://localhost:7860`.
@@ -394,7 +449,7 @@ La aplicación estará disponible en `http://localhost:7860`.
 Ejecuta la evaluación con RAGAS:
 
 ```powershell
-.env\Scripts\python.exe 3_evaluacion_ragas.py
+.\env\Scripts\python.exe 3_evaluacion_ragas.py
 ```
 
 Genera el informe `informe_evaluacion_rag.csv`.
@@ -404,7 +459,7 @@ Genera el informe `informe_evaluacion_rag.csv`.
 Verifica que todas las librerías funcionen correctamente:
 
 ```powershell
-.env\Scripts\python.exe diagnostico.py
+.\env\Scripts\python.exe diagnostico.py
 ```
 
 ---
@@ -492,7 +547,3 @@ El modelo `paraphrase-multilingual-MiniLM-L12-v2` fue seleccionado por:
 - **Modelo Flash Lite:** Optimizado para velocidad y costo, adecuado para consultas de baja latencia.
 
 ---
-
-## Licencia y Uso
-
-Este proyecto fue desarrollado como un asistente de consulta del Reglamento Institucional de la Fundación Universitaria Konrad Lorenz. Las respuestas generadas son orientativas y deben verificarse contra el documento oficial del reglamento.
