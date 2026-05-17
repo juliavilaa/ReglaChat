@@ -28,7 +28,14 @@ def evaluar_sistema():
     )
     
     llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", temperature=0.0)
-    retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k": 6})
+    retriever = vector_store.as_retriever(
+        search_type="mmr", 
+        search_kwargs={
+            "k": 8,          # Devuelve los 8 mejores fragmentos al LLM
+            "fetch_k": 30,   # Primero busca los 30 más similares en la base
+            "lambda_mult": 0.7 # Equilibrio entre similitud (1.0) y diversidad (0.0)
+        }
+    )
 
     # El mismo prompt de tu App
     PROMPT_TEMPLATE = """
