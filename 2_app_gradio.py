@@ -7,7 +7,6 @@ from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
 
-# 1. ESTO CARGA UNA SOLA VEZ (Adiós crasheos silenciosos)
 print("Cargando IA...")
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 vector_store = Chroma(persist_directory="./chroma_db", embedding_function=embeddings, collection_name="reglamento_db")
@@ -15,10 +14,10 @@ llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", temperature=
 retriever = vector_store.as_retriever(
     search_type="similarity", 
     search_kwargs={
-        "k": 5  # AUMENTAR DRÁSTICAMENTE LA CANTIDAD DE CONTEXTO
+        "k": 5  
     }
 )
-# --- DISEÑO DEL SYSTEM PROMPT (TFTCR + FEW-SHOT) ---
+# --- DISEÑO DEL SYSTEM PROMPT 
 PROMPT_TEMPLATE = """
 Eres un asistente institucional experto.
 
@@ -51,7 +50,7 @@ Respuesta:
 
 prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
 
-# 3. LA INTERFAZ MÁGICA
+# 3. LA INTERFAZ
 print("Iniciando interfaz web...")
 
 with gr.Blocks() as interfaz:

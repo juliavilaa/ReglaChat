@@ -10,17 +10,15 @@ def crear_base_vectorial_local():
     documentos = loader.load()
 
     print("2. Aplicando Chunking Mejorado...")
-    # Aumentamos el tamaño y usamos los "Artículos" como separadores principales
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1200,    # Aumentado para capturar artículos completos
-        chunk_overlap=200,  # Aumentado para mantener la coherencia
+        chunk_size=1200,    
+        chunk_overlap=200,  
         separators=["\nARTÍCULO", "\nPARÁGRAFO", "\n\n", "\n", ".", " "]
     )
     fragmentos = text_splitter.split_documents(documentos)
     print(f"   -> Se generaron {len(fragmentos)} chunks.")
 
     print("3. Generando Embeddings Multilingües...")
-    # Este modelo es excelente para textos en español
     embeddings_locales = HuggingFaceEmbeddings(
         model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     )

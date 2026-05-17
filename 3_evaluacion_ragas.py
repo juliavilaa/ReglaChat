@@ -31,11 +31,11 @@ def evaluar_sistema():
     retriever = vector_store.as_retriever(
         search_type="similarity", 
         search_kwargs={
-            "k": 5  # Equilibrio entre cobertura y precisión del contexto
+            "k": 5 
         }
     )
 
-    # El mismo prompt de tu App (TFTCR + FEW-SHOT)
+    
     PROMPT_TEMPLATE = """
 Eres un asistente institucional experto.
 
@@ -45,7 +45,7 @@ Eres un asistente institucional experto.
 [TONE] Institucional, profesional, respetuoso y útil.
 [CONSTRAINTS/REQUIREMENTS]
 1. NUNCA uses conocimiento externo.
-2. Si la respuesta no está explícitamente en el [CONTEXT], debes responder EXACTAMENTE con esta frase: "No encuentro esa información en el reglamento."
+2. Si la respuesta no está en el [CONTEXT], debes responder EXACTAMENTE con esta frase: "No encuentro esa información en el reglamento."
 3. No inventes excepciones ni asumas políticas que no estén escritas.
 
 [FEW-SHOT EXAMPLES]
@@ -67,7 +67,7 @@ Respuesta:
 """
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
 
-    # 2. DEFINIR LAS 10 PREGUNTAS DE PRUEBA (¡AQUÍ DEBES PONER LAS TUYAS!)
+    # 2. DEFINIR LAS 10 PREGUNTAS DE PRUEBA
     muestras_evaluacion = [
     {
         "user_input": "¿Cuántas inasistencias causan la pérdida de la materia?",
@@ -124,14 +124,14 @@ Respuesta:
         prompt_final = prompt_template.invoke({"context": contexto, "question": pregunta})
         respuesta_cruda = llm.invoke(prompt_final).content
         
-        # Si Gemini nos devuelve una lista de bloques, extraemos solo el texto
+        
         if isinstance(respuesta_cruda, list):
             respuesta_llm = "".join([bloque.get("text", "") for bloque in respuesta_cruda if isinstance(bloque, dict)])
         else:
-            # Si ya es un texto normal, lo aseguramos como string
+            
             respuesta_llm = str(respuesta_cruda)
         
-        # Guardar en el formato que exige RAGAS
+        
         registros.append({
             "user_input": pregunta,
             "retrieved_contexts": [d.page_content for d in docs],
@@ -143,7 +143,7 @@ Respuesta:
     # 3. EVALUACIÓN CON RAGAS
     print("\n3. Iniciando el Juez RAGAS (Esto tomará unos minutos y consumirá tokens de Gemini)...")
     
-    # RAGAS necesita envolver los modelos para usarlos como jueces
+    
     llm_juez = LangchainLLMWrapper(llm)
     embeddings_juez = LangchainEmbeddingsWrapper(embeddings_locales)
     
@@ -166,9 +166,9 @@ Respuesta:
     columnas_mostrar = ["user_input", "faithfulness", "answer_relevancy", "context_precision"]
     print(df_resultados[columnas_mostrar].to_string(index=False))
     
-    # Guardar en un CSV para tu informe final
+    # Guardar en un CSV
     df_resultados.to_csv("informe_evaluacion_rag.csv", index=False)
-    print("\n¡Listo! Resultados guardados en 'informe_evaluacion_rag.csv'. Pega esto en tu documento.")
+    print("\n¡Listo! Resultados guardados en 'informe_evaluacion_rag.csv'.")
 
 if __name__ == "__main__":
     evaluar_sistema()
