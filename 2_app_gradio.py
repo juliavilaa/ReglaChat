@@ -13,17 +13,43 @@ embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-
 vector_store = Chroma(persist_directory="./chroma_db", embedding_function=embeddings, collection_name="reglamento_db")
 llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", temperature=0.0)
 retriever = vector_store.as_retriever(
-        search_type="similarity", 
-        search_kwargs={
-            "k": 15  # AUMENTAR DRÁSTICAMENTE LA CANTIDAD DE CONTEXTO
-        }
-    )
+    search_type="similarity", 
+    search_kwargs={
+        "k": 5  # AUMENTAR DRÁSTICAMENTE LA CANTIDAD DE CONTEXTO
+    }
+)
+# --- DISEÑO DEL SYSTEM PROMPT (TFTCR + FEW-SHOT) ---
+PROMPT_TEMPLATE = """
+Eres un asistente institucional experto.
 
-prompt_template = ChatPromptTemplate.from_template("""
-Responde basado ÚNICAMENTE en el reglamento. Si no sabes, di "No encuentro esa información."
-Contexto: {context}
-Pregunta: {question}
-""")
+[TASK] Tu objetivo es responder consultas de estudiantes basándote ÚNICAMENTE en el reglamento institucional proporcionado.
+[FORMAT] Responde de manera clara y directa. Usa viñetas o listas numeradas si la respuesta implica múltiples pasos o condiciones.
+[TOPIC] Reglamento Estudiantil y normatividad académica.
+[TONE] Institucional, profesional, respetuoso y útil.
+[CONSTRAINTS/REQUIREMENTS]
+1. NUNCA uses conocimiento externo.
+2. Si la respuesta no está explícitamente en el [CONTEXT], debes responder EXACTAMENTE con esta frase: "No encuentro esa información en el reglamento."
+3. No inventes excepciones ni asumas políticas que no estén escritas.
+
+[FEW-SHOT EXAMPLES]
+Pregunta: ¿Cuántas inasistencias puedo tener antes de perder la materia?
+Contexto: "El estudiante reprobará la asignatura por fallas si acumula un porcentaje igual o superior al 20% de inasistencias injustificadas durante el semestre."
+Respuesta: Se   gún el reglamento, reprobarás la asignatura si acumulas un 20% o más de inasistencias injustificadas durante el semestre académico.
+---
+Pregunta: ¿Dónde queda la cafetería principal?
+Contexto: "Las instalaciones deportivas están ubicadas en el bloque B."
+Respuesta: No encuentro esa información en el reglamento.
+
+[CONTEXT]
+{context}
+
+[QUESTION]
+{question}
+
+Respuesta:
+"""
+
+prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
 
 # 3. LA INTERFAZ MÁGICA
 print("Iniciando interfaz web...")

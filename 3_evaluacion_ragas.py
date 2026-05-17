@@ -27,23 +27,44 @@ def evaluar_sistema():
         collection_name="reglamento_db"
     )
     
-    llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", temperature=0.0)
+    llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite-preview", temperature=0.0, max_output_tokens=2048)
     retriever = vector_store.as_retriever(
-        search_type="mmr", 
+        search_type="similarity", 
         search_kwargs={
-            "k": 8,          # Devuelve los 8 mejores fragmentos al LLM
-            "fetch_k": 30,   # Primero busca los 30 más similares en la base
-            "lambda_mult": 0.7 # Equilibrio entre similitud (1.0) y diversidad (0.0)
+            "k": 5  # Equilibrio entre cobertura y precisión del contexto
         }
     )
 
-    # El mismo prompt de tu App
+    # El mismo prompt de tu App (TFTCR + FEW-SHOT)
     PROMPT_TEMPLATE = """
-    Eres un asistente institucional experto.
-    Responde la pregunta basándote ÚNICAMENTE en este contexto: {context}
-    Si no está la respuesta, di exactamente: "No encuentro esa información en el reglamento."
-    Pregunta: {question}
-    Respuesta:"""
+Eres un asistente institucional experto.
+
+[TASK] Tu objetivo es responder consultas de estudiantes basándote ÚNICAMENTE en el reglamento institucional proporcionado.
+[FORMAT] Responde de manera clara y directa. Usa viñetas o listas numeradas si la respuesta implica múltiples pasos o condiciones.
+[TOPIC] Reglamento Estudiantil y normatividad académica.
+[TONE] Institucional, profesional, respetuoso y útil.
+[CONSTRAINTS/REQUIREMENTS]
+1. NUNCA uses conocimiento externo.
+2. Si la respuesta no está explícitamente en el [CONTEXT], debes responder EXACTAMENTE con esta frase: "No encuentro esa información en el reglamento."
+3. No inventes excepciones ni asumas políticas que no estén escritas.
+
+[FEW-SHOT EXAMPLES]
+Pregunta: ¿Cuántas inasistencias puedo tener antes de perder la materia?
+Contexto: "El estudiante reprobará la asignatura por fallas si acumula un porcentaje igual o superior al 20% de inasistencias injustificadas durante el semestre."
+Respuesta: Según el reglamento, reprobarás la asignatura si acumulas un 20% o más de inasistencias injustificadas durante el semestre académico.
+---
+Pregunta: ¿Dónde queda la cafetería principal?
+Contexto: "Las instalaciones deportivas están ubicadas en el bloque B."
+Respuesta: No encuentro esa información en el reglamento.
+
+[CONTEXT]
+{context}
+
+[QUESTION]
+{question}
+
+Respuesta:
+"""
     prompt_template = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
 
     # 2. DEFINIR LAS 10 PREGUNTAS DE PRUEBA (¡AQUÍ DEBES PONER LAS TUYAS!)
